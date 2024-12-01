@@ -16,7 +16,7 @@ import { MongooseModule } from '@nestjs/mongoose';
         authSource: 'admin'
       }),
       inject: [ConfigService],
-    }), 
+    }),
     AuthModule
   ],
   controllers: [],

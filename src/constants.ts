@@ -1,3 +1,2 @@
-export const jwtConstants = {
-    secret: 'DO NOT USE THIS VALUE. INSTEAD, CREATE A COMPLEX SECRET AND KEEP IT SAFE OUTSIDE OF THE SOURCE CODE.',
-};
+export const ACCES_TOKEN_LIFETIME = '1m';
+export const REFRESH_TOKEN_LIFETIME = '1h';

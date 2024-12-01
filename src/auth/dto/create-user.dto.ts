@@ -1,6 +1,6 @@
 import { IsEmail, IsNotEmpty, IsString, IsStrongPassword } from 'class-validator';
 
-export class SignupDto {
+export class CreateUserDto {
   @IsString()
   @IsNotEmpty({ message: 'Nombre no puede ser vacio'})
   name: string;

@@ -1,11 +1,13 @@
-import { BadRequestException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { User, UserDocument } from './schemas/user.schema';
 import { Model } from 'mongoose';
 import * as argon2 from 'argon2';
-import { SignupDto } from './dto/signup.dto';
-import { LoginDto } from './dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
+import { CreateUserDto } from './dto/create-user.dto';
+import { ConfigService } from '@nestjs/config';
+import { ACCES_TOKEN_LIFETIME, REFRESH_TOKEN_LIFETIME } from 'src/constants';
+import { ObjectId } from 'typeorm';
 
 @Injectable()
 export class AuthService {
@@ -15,25 +17,27 @@ export class AuthService {
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
 
-    private jwtService: JwtService
+    private jwtService: JwtService,
+    private configService: ConfigService
 
   ) { }
 
 
+  /**
+      * Add new user
+    */
+  async signup(createUserDto: CreateUserDto): Promise<User> {
 
-  async signup(signupDto: SignupDto): Promise<User> {
+    const userQuery = await this.userModel.findOne<User>({ email: createUserDto.email }).exec();
 
-    const userQuery = await this.userModel.findOne<User>({ email: signupDto.email }).exec();
-
-    if (userQuery !== null) {
-      throw new HttpException(`Email: ${signupDto.email} has already been registered`, HttpStatus.BAD_REQUEST);
-    }
+    if (userQuery !== null)
+      throw new HttpException(`Email: ${createUserDto.email} has already been registered`, HttpStatus.BAD_REQUEST);
 
     // TRANSFORMACION DEL PASSWORD
-    const hashPassword = await argon2.hash(signupDto.password);
+    const hashPassword = await this.hashData(createUserDto.password);
 
     // REGISTRO DE LA INFORMACION DEL NUEVO USUARIO
-    const userCreate = await this.userModel.create({ ...signupDto, password: hashPassword });
+    const userCreate = await this.userModel.create({ ...createUserDto, password: hashPassword });
 
     if (!userCreate) throw new HttpException('Error Registering User Try Again', HttpStatus.INTERNAL_SERVER_ERROR);
 
@@ -41,32 +45,89 @@ export class AuthService {
 
   }
 
-  login(usuario: Partial<User>) {
-    
-    const payload = { username: usuario.email, sub: usuario._id };
-    return {
-      access_token: this.jwtService.sign(payload),
-    };
+  /**
+    * generate new credential for a user
+  */
+  localSignin = async (user: Partial<User>) => await this.getTokens(user);
+
+
+  refreshTokens = async (user: Partial<User>) => await this.getTokens(user);
+
+
+  me = async (sub: string) => await this.userModel.findById(sub).select(['-password']);
+
+
+
+
+
+  /**
+     * Validate user credentials
+   */
+  async validateUser(email: string, pass: string): Promise<Partial<User>> {
+
+    const user = await this.userModel.findOne<User>({ email });
+
+    if (!user)
+      throw new BadRequestException('Wrong email');
+
+    const passwordMatches = await this.verifyData(user.password, pass);
+
+    if (!passwordMatches)
+      throw new BadRequestException('Password is incorrect');
+
+    return (user && passwordMatches) ? user : null;
   }
 
 
-
-  async validateUser(username: string, pass: string): Promise<Partial<User>> {
-
-    const user = await this.userModel.findOne<User>({ email: username });
-
-    if (!user) throw new BadRequestException('Wrong email');
-
-    const passwordMatches = await argon2.verify(user.password, pass);
-
-    if (!passwordMatches) throw new BadRequestException('Password is incorrect');
-
-    const { password, ...result } = user ;
-
+  async validateRefreshToken(refreshToken: string) {
+    try {
+      const payload = this.jwtService.verify(refreshToken,
+        { secret: this.configService.get<string>('JWT_REFRESH_SECRET') }
+      )
+      return await this.userModel.findById(payload.sub).select(['-password']);
+    } catch(error) {
+      throw new UnauthorizedException();
+    }
     
-
-    return (user && passwordMatches) ? result : null;
   }
 
+
+  /**
+   * Data encrypt
+   */
+  hashData = (data: string) => argon2.hash(data);
+
+  /**
+   * Verify the authenticity of an encrypted string with an unauthenticated one
+   */
+
+  verifyData = (stringHash: string, stringPlain: string) => argon2.verify(stringHash, stringPlain);
+
+  /**
+   * Access token generator and refresh token
+   */
+  async getTokens(user: Partial<User>) {
+
+    const payload = { sub: user._id, email: user.email };
+
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(payload,
+        {
+          secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
+          expiresIn: ACCES_TOKEN_LIFETIME,
+        },
+      ),
+      this.jwtService.signAsync(payload,
+        {
+          secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+          expiresIn: REFRESH_TOKEN_LIFETIME,
+        },
+      ),
+    ]);
+
+
+
+    return { accessToken, refreshToken };
+  }
 
 }
