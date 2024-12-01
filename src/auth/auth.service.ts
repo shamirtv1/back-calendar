@@ -51,13 +51,16 @@ export class AuthService {
   localSignin = async (user: Partial<User>) => await this.getTokens(user);
 
 
+  /**
+      * Revalidate token
+    */
   refreshTokens = async (user: Partial<User>) => await this.getTokens(user);
 
 
+  /**
+    * Current user information
+  */
   me = async (sub: string) => await this.userModel.findById(sub).select(['-password']);
-
-
-
 
 
   /**
@@ -79,16 +82,19 @@ export class AuthService {
   }
 
 
+  /**
+     * Validate refreshtoken
+   */
   async validateRefreshToken(refreshToken: string) {
     try {
       const payload = this.jwtService.verify(refreshToken,
         { secret: this.configService.get<string>('JWT_REFRESH_SECRET') }
       )
       return await this.userModel.findById(payload.sub).select(['-password']);
-    } catch(error) {
+    } catch (error) {
       throw new UnauthorizedException();
     }
-    
+
   }
 
 
@@ -97,11 +103,12 @@ export class AuthService {
    */
   hashData = (data: string) => argon2.hash(data);
 
+
   /**
    * Verify the authenticity of an encrypted string with an unauthenticated one
    */
-
   verifyData = (stringHash: string, stringPlain: string) => argon2.verify(stringHash, stringPlain);
+
 
   /**
    * Access token generator and refresh token
