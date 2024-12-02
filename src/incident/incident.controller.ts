@@ -25,12 +25,14 @@ export class IncidentController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateIncidentDto: UpdateIncidentDto) {
-    return this.incidentService.update(+id, updateIncidentDto);
+  update(@Param('id') id: string, @Body() updateIncidentDto: UpdateIncidentDto, @Request() req: any) {
+    const userId = req.user['sub'];
+    return this.incidentService.update(id, updateIncidentDto, userId);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.incidentService.remove(+id);
+  remove(@Param('id') id: string, @Request() req: any) {
+    const userId = req.user['sub'];
+    return this.incidentService.remove(id, userId);
   }
 }
