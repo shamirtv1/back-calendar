@@ -7,15 +7,13 @@ import { JwtService } from '@nestjs/jwt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { ConfigService } from '@nestjs/config';
 import { ACCES_TOKEN_LIFETIME, REFRESH_TOKEN_LIFETIME } from 'src/constants';
-import { ObjectId } from 'typeorm';
 
 @Injectable()
 export class AuthService {
 
   constructor(
 
-    @InjectModel(User.name)
-    private readonly userModel: Model<UserDocument>,
+    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
 
     private jwtService: JwtService,
     private configService: ConfigService

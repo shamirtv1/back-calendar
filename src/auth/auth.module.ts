@@ -39,5 +39,8 @@ import { RefreshTokenStrategy } from './strategies/refreshToken.strategy';
       useClass: JwtAuthGuard,
     },
   ],
+  exports: [
+    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
+  ]
 })
 export class AuthModule {}
