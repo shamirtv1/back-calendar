@@ -70,6 +70,9 @@ export class IncidentService {
   }
 
   async remove(id: string, userId: string) {
-    return await this.incidentModel.findByIdAndDelete(id);
+    const incident = await this.incidentModel.findByIdAndDelete(id);
+    if(!incident) 
+      throw new HttpException(`Incident not found`, HttpStatus.NOT_FOUND);
+    return incident
   }
 }
